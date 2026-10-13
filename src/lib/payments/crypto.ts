@@ -25,9 +25,9 @@ export interface CryptoInvoiceResponse {
 }
 
 /**
- * Fetch live cryptocurrency rates or fall back to baseline market pegs
+ * Fetch a current cryptocurrency rate before creating an invoice.
  */
-async function getLiveCryptoRate(currency: string): Promise<number> {
+async function getLiveCryptoRate(currency: string): Promise<number | null> {
   if (currency === "USDT_TRC20" || currency === "USDT_ERC20") {
     return 1.0; // Tether is 1:1 USD peg
   }
@@ -45,11 +45,10 @@ async function getLiveCryptoRate(currency: string): Promise<number> {
       }
     }
   } catch (err) {
-    console.warn("[Crypto Rate Fetch Warning]: Using fallback market rate", err);
+    console.warn("[Crypto Rate Fetch Warning]: Unable to fetch current market rate", err);
   }
 
-  // Fallback market rates if rate provider is temporarily unreachable
-  return currency === "BTC" ? 68500 : 3450;
+  return null;
 }
 
 export async function generateCryptoInvoice(
@@ -102,6 +101,20 @@ export async function generateCryptoInvoice(
   }
 
   const rate = await getLiveCryptoRate(request.currency);
+  if (!rate) {
+    return {
+      success: false,
+      invoiceId,
+      depositAddress: "",
+      network: selectedConfig.network,
+      cryptoAmount: "0",
+      rateUsd: 0,
+      qrCodeUrl: "",
+      expiresInMinutes: 0,
+      explorerUrl: "",
+      error: "Unable to retrieve a current cryptocurrency exchange rate. Please try again shortly.",
+    };
+  }
   const calculatedCryptoAmount = (request.amountUsd / rate).toFixed(
     request.currency === "BTC" ? 6 : request.currency === "ETH" ? 4 : 2
   );

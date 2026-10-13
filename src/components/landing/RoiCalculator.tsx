@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Calculator, Sparkles, TrendingUp, DollarSign, Users, ArrowRight, ShieldCheck, Zap } from "lucide-react";
+import { Calculator, Sparkles, TrendingUp, Users, ArrowRight, ShieldCheck, Zap } from "lucide-react";
 
 export default function RoiCalculator() {
   const [currency, setCurrency] = useState<"USD" | "NGN">("USD");
@@ -70,8 +70,8 @@ export default function RoiCalculator() {
             Calculate Your <span className="text-[#ff5b37] italic font-serif">Growth Multiplier</span>
           </h2>
           <p className="text-slate-600 text-base sm:text-lg">
-            Input your monthly budget and target industry to simulate projected pipeline, 
-            qualified leads, and incremental revenue unlocked by PulseAI algorithms.
+            Use your monthly budget and target industry to explore planning estimates for leads and revenue.
+            Results are directional and are refined during the strategy review.
           </p>
 
           {/* Currency Toggle */}
@@ -195,7 +195,8 @@ export default function RoiCalculator() {
             <div className="p-4 rounded-2xl bg-orange-50/60 border border-orange-100 flex items-center gap-3 text-xs text-slate-600">
               <ShieldCheck className="w-5 h-5 text-[#ff5b37] shrink-0" />
               <span>
-                Calculations based on actual blended performance data across 250+ PulseAI active accounts.
+                This is a planning tool, not a performance guarantee. Actual results depend on your offer,
+                market, creative, tracking, and sales process.
               </span>
             </div>
           </div>
@@ -255,7 +256,7 @@ export default function RoiCalculator() {
                   {formatCurrency(activeProfile.cpl)}
                 </div>
                 <span className="text-[11px] text-slate-500 mt-1 block">
-                  54% below industry average
+                  Planning assumption for this estimate
                 </span>
               </div>
 
@@ -280,11 +281,11 @@ export default function RoiCalculator() {
                 href={`/get-started?budget=${encodeURIComponent(formatCurrency(monthlyBudget))}&industry=${industry}`}
                 className="w-full flex items-center justify-center gap-3 py-4 rounded-xl bg-[#ff5b37] hover:bg-[#e84a26] text-white font-bold text-sm shadow-xl shadow-orange-500/25 hover:shadow-orange-500/35 hover:scale-[1.01] active:scale-[0.99] transition-all"
               >
-                <span>Lock In This AI Strategy & Start Brief</span>
+                <span>Use These Inputs in My Brief</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <p className="text-center text-[11px] text-slate-500 mt-2">
-                No long-term contracts. 14-day performance milestone guarantee.
+                Your final scope, pricing, and targets are confirmed before work begins.
               </p>
             </div>
           </div>

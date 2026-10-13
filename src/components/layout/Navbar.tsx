@@ -36,13 +36,7 @@ export default function Navbar() {
             Why PulseAI
           </Link>
           <Link href="/#roi-calculator" className="hover:text-[#ff5b37] transition-colors flex items-center gap-1.5">
-            ROI Calculator
-            <span className="text-[10px] bg-[#fff2ef] text-[#ff5b37] px-2 py-0.5 rounded-full font-bold border border-[#fed7cc]">
-              Live
-            </span>
-          </Link>
-          <Link href="/#case-studies" className="hover:text-[#ff5b37] transition-colors">
-            Results
+            Planning Estimator
           </Link>
           <Link href="/#pricing" className="hover:text-[#ff5b37] transition-colors">
             Pricing
@@ -54,12 +48,6 @@ export default function Navbar() {
 
         {/* Action CTAs */}
         <div className="hidden lg:flex items-center gap-3.5">
-          <Link
-            href="/dashboard"
-            className="text-xs font-bold px-3.5 py-2 rounded-xl border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 transition-all bg-white shadow-sm"
-          >
-            Leads Hub
-          </Link>
           <Link
             href="/get-started"
             className="relative group inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#ff5b37] hover:bg-[#e84a26] active:bg-[#d03e1d] text-white text-sm font-bold shadow-lg shadow-orange-500/25 hover:shadow-orange-500/35 hover:scale-[1.02] active:scale-[0.98] transition-all"
@@ -102,14 +90,7 @@ export default function Navbar() {
               onClick={() => setMobileMenuOpen(false)}
               className="py-2 hover:text-[#ff5b37] transition-colors"
             >
-              ROI Calculator
-            </Link>
-            <Link
-              href="/#case-studies"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 hover:text-[#ff5b37] transition-colors"
-            >
-              Case Studies & Proof
+              Planning Estimator
             </Link>
             <Link
               href="/#pricing"
@@ -124,13 +105,6 @@ export default function Navbar() {
               className="py-2 hover:text-[#ff5b37] transition-colors"
             >
               Contact & Support
-            </Link>
-            <Link
-              href="/dashboard"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 hover:text-[#ff5b37] transition-colors"
-            >
-              Briefs Tracker Hub
             </Link>
           </nav>
           <div className="pt-4 border-t border-slate-100">

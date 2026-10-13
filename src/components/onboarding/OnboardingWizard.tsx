@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   Building2,
@@ -16,9 +17,19 @@ import {
   QrCode,
   CreditCard,
   Copy,
-  ExternalLink,
 } from "lucide-react";
 import confetti from "canvas-confetti";
+
+type CryptoInvoiceDetails = {
+  invoiceId: string;
+  depositAddress: string;
+  network: string;
+  cryptoAmount: string;
+  qrCodeUrl: string;
+  expiresInMinutes: number;
+  message?: string;
+  data?: { tx_ref?: string };
+};
 
 export default function OnboardingWizard() {
   const searchParams = useSearchParams();
@@ -31,10 +42,13 @@ export default function OnboardingWizard() {
 
   // Payment state
   const [activePaymentModal, setActivePaymentModal] = useState<null | {
-    gateway: "flutterwave" | "crypto" | "sandbox";
-    details: any;
+    gateway: "crypto";
+    details: CryptoInvoiceDetails;
   }>(null);
   const [copiedAddress, setCopiedAddress] = useState(false);
+  const [cryptoTxHash, setCryptoTxHash] = useState("");
+  const [cryptoConfirmationError, setCryptoConfirmationError] = useState("");
+  const [cryptoConfirmationSubmitting, setCryptoConfirmationSubmitting] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -76,6 +90,8 @@ export default function OnboardingWizard() {
     const serviceParam = searchParams.get("service");
     const domainParam = searchParams.get("domain");
 
+    // The search parameters are the source of truth when a user enters from a priced plan or estimator.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFormData((prev) => ({
       ...prev,
       businessName: domainParam || prev.businessName,
@@ -207,7 +223,10 @@ export default function OnboardingWizard() {
         throw new Error(data.error || "Failed to submit brief.");
       }
 
-      setSubmittedBriefId(data.briefId || "brief_" + Date.now());
+      if (!data.briefId) {
+        throw new Error("Your brief was saved without a reference ID. Please contact support.");
+      }
+      setSubmittedBriefId(data.briefId);
       setCurrentStep(5); // Show success celebration
       confetti({
         particleCount: 100,
@@ -215,12 +234,12 @@ export default function OnboardingWizard() {
         origin: { y: 0.6 },
       });
 
-      // If user selected instant Flutterwave or Crypto checkout, initialize
+      // Start the selected real payment flow after the brief is stored.
       if (formData.paymentMethod === "flutterwave" || formData.paymentMethod === "crypto") {
         initiatePaymentFlow(data.briefId, formData.paymentMethod);
       }
-    } catch (err: any) {
-      setErrorMsg(err.message || "An unexpected error occurred. Please try again.");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "An unexpected error occurred. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -246,21 +265,59 @@ export default function OnboardingWizard() {
       });
 
       const checkoutData = await checkoutRes.json();
-      if (checkoutData.success) {
-        if (gateway === "flutterwave" && checkoutData.checkoutUrl) {
-          setActivePaymentModal({
-            gateway: "flutterwave",
-            details: checkoutData,
-          });
-        } else if (gateway === "crypto" && checkoutData.invoice) {
-          setActivePaymentModal({
-            gateway: "crypto",
-            details: checkoutData.invoice,
-          });
-        }
+      if (!checkoutRes.ok || !checkoutData.success) {
+        throw new Error(checkoutData.error || "Unable to start the payment session.");
       }
-    } catch (pErr) {
-      console.warn("Payment flow initial error:", pErr);
+
+      if (gateway === "flutterwave" && checkoutData.checkoutUrl) {
+        window.location.assign(checkoutData.checkoutUrl);
+        return;
+      }
+
+      if (gateway === "crypto" && checkoutData.invoice) {
+        setCryptoTxHash("");
+        setCryptoConfirmationError("");
+        setActivePaymentModal({ gateway: "crypto", details: checkoutData.invoice });
+        return;
+      }
+
+      throw new Error("The payment provider did not return a checkout session.");
+    } catch (pErr: unknown) {
+      setErrorMsg(pErr instanceof Error ? pErr.message : "Unable to start the payment session.");
+    }
+  };
+
+  const submitCryptoConfirmation = async () => {
+    if (!activePaymentModal || !cryptoTxHash.trim()) {
+      setCryptoConfirmationError("Enter the transaction hash from your wallet before submitting.");
+      return;
+    }
+
+    setCryptoConfirmationSubmitting(true);
+    setCryptoConfirmationError("");
+    try {
+      const res = await fetch("/api/checkout/crypto-confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          briefId: submittedBriefId,
+          invoiceId: activePaymentModal.details.invoiceId,
+          txHash: cryptoTxHash,
+          network: activePaymentModal.details.network,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Unable to submit the transaction for verification.");
+      }
+      setActivePaymentModal(null);
+      setErrorMsg("Your transaction hash was submitted for on-chain verification.");
+    } catch (err: unknown) {
+      setCryptoConfirmationError(
+        err instanceof Error ? err.message : "Unable to submit the transaction for verification."
+      );
+    } finally {
+      setCryptoConfirmationSubmitting(false);
     }
   };
 
@@ -276,7 +333,6 @@ export default function OnboardingWizard() {
               { num: 3, title: "Budget & Stack", icon: DollarSign },
               { num: 4, title: "Contact & Billing", icon: UserCheck },
             ].map((step) => {
-              const Icon = step.icon;
               const isActive = currentStep === step.num;
               const isDone = currentStep > step.num;
               return (
@@ -312,8 +368,8 @@ export default function OnboardingWizard() {
               className="bg-[#ff5b37] h-full transition-all duration-300"
               style={{ width: `${(currentStep / 4) * 100}%` }}
             />
+            </div>
           </div>
-        </div>
       )}
 
       {/* Error alert if any */}
@@ -693,7 +749,7 @@ export default function OnboardingWizard() {
                 Final Step: Contact & Payment Integration
               </h2>
               <p className="text-slate-500 text-xs sm:text-sm">
-                Connect your contact details to generate your customized AI growth dashboard and secure your slot.
+                Share your contact details so we can prepare your tailored scope and payment options.
               </p>
             </div>
 
@@ -746,7 +802,12 @@ export default function OnboardingWizard() {
                 </label>
                 <select
                   value={formData.paymentMethod}
-                  onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value as any })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      paymentMethod: e.target.value as "flutterwave" | "crypto" | "invoice",
+                    })
+                  }
                   className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-[#ff5b37] text-slate-900 text-sm outline-none cursor-pointer"
                 >
                   <option value="flutterwave">Flutterwave Gateway (NGN Naira / African Cards)</option>
@@ -773,7 +834,7 @@ export default function OnboardingWizard() {
             <div className="p-4 rounded-2xl bg-orange-50 border border-orange-100 flex items-center gap-3 text-xs text-slate-700">
               <ShieldCheck className="w-5 h-5 text-[#ff5b37] shrink-0" />
               <span>
-                Encrypted submission saved to MongoDB. Real-time Telegram alert triggered for our Growth Director.
+                Your details are submitted securely and shared only with the team preparing your proposal.
               </span>
             </div>
 
@@ -861,7 +922,7 @@ export default function OnboardingWizard() {
                     className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-[#ff5b37] hover:bg-[#e84a26] text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-orange-500/25"
                   >
                     <CreditCard className="w-4 h-4" />
-                    <span>Pay Retainer via Flutterwave (NGN)</span>
+                    <span>Pay Securely via Flutterwave</span>
                   </button>
                 )}
 
@@ -871,24 +932,16 @@ export default function OnboardingWizard() {
                     className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-[#ff5b37] hover:bg-[#e84a26] text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-orange-500/25"
                   >
                     <QrCode className="w-4 h-4" />
-                    <span>View USDT / BTC Crypto Invoice</span>
+                    <span>View Crypto Invoice</span>
                   </button>
                 )}
 
-                <a
-                  href="/dashboard"
-                  className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs border border-slate-200 flex items-center justify-center gap-2 shadow-sm"
-                >
-                  <span>View All Briefs in Hub</span>
-                  <ExternalLink className="w-4 h-4" />
-                </a>
-
-                <a
+                <Link
                   href="/"
                   className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
                 >
                   Return to Homepage
-                </a>
+                </Link>
               </div>
             </div>
           </div>
@@ -906,7 +959,7 @@ export default function OnboardingWizard() {
               ✕
             </button>
 
-            {activePaymentModal.gateway === "crypto" ? (
+            <div>
               <div className="space-y-4 text-center">
                 <div className="w-12 h-12 rounded-2xl bg-[#fff2ef] text-[#ff5b37] flex items-center justify-center mx-auto">
                   <QrCode className="w-6 h-6" />
@@ -917,7 +970,7 @@ export default function OnboardingWizard() {
                   <strong className="text-[#ff5b37] font-mono text-sm">
                     {activePaymentModal.details.cryptoAmount} {activePaymentModal.details.network}
                   </strong>{" "}
-                  to activate your retainer.
+                  to the address below. Then submit the transaction hash for verification.
                 </p>
 
                 {/* QR Code */}
@@ -955,27 +1008,43 @@ export default function OnboardingWizard() {
 
                 <div className="text-[11px] text-slate-500 flex items-center justify-between">
                   <span>Invoice: {activePaymentModal.details.invoiceId}</span>
-                  <span className="text-emerald-700 font-bold">Valid for 60 mins</span>
+                  <span className="text-emerald-700 font-bold">
+                    Valid for {activePaymentModal.details.expiresInMinutes} mins
+                  </span>
                 </div>
 
+                <div className="space-y-2 text-left">
+                  <label htmlFor="crypto-tx-hash" className="block text-xs font-bold text-slate-700">
+                    Transaction hash / TxID
+                  </label>
+                  <input
+                    id="crypto-tx-hash"
+                    type="text"
+                    value={cryptoTxHash}
+                    onChange={(event) => setCryptoTxHash(event.target.value)}
+                    placeholder="Paste the transaction hash from your wallet"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 font-mono text-xs text-slate-900 outline-none focus:border-[#ff5b37]"
+                  />
+                  {cryptoConfirmationError && <p className="text-xs text-rose-600">{cryptoConfirmationError}</p>}
+                </div>
                 <button
-                  onClick={() => {
-                    setActivePaymentModal(null);
-                    alert("Payment confirmation received! Your campaign manager will contact you on WhatsApp.");
-                  }}
-                  className="w-full py-3.5 rounded-xl bg-[#ff5b37] hover:bg-[#e84a26] text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md shadow-orange-500/20"
+                  type="button"
+                  disabled={cryptoConfirmationSubmitting}
+                  onClick={submitCryptoConfirmation}
+                  className="w-full py-3.5 rounded-xl bg-[#ff5b37] hover:bg-[#e84a26] text-white font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-orange-500/25 disabled:opacity-50"
                 >
-                  I Have Sent The Crypto
+                  {cryptoConfirmationSubmitting ? "Submitting…" : "Submit Transaction for Verification"}
                 </button>
               </div>
-            ) : (
+            {/* Flutterwave checkout redirects customers to the provider-hosted payment page. */}
+            {/*
               <div className="space-y-4 text-center">
                 <div className="w-12 h-12 rounded-2xl bg-orange-100 text-[#ff5b37] flex items-center justify-center mx-auto">
                   <CreditCard className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900">Flutterwave Payment Session</h3>
                 <p className="text-xs text-slate-600">
-                  {activePaymentModal.details.message ||
+                  {activePaymentModal?.details.message ||
                     "Ready to process payment with Flutterwave for NGN bank transfer, card, or USSD."}
                 </p>
 
@@ -983,7 +1052,7 @@ export default function OnboardingWizard() {
                   <div className="flex justify-between">
                     <span className="text-slate-500">Transaction Ref:</span>
                     <span className="font-mono text-[#ff5b37] font-bold">
-                      {activePaymentModal.details.data?.tx_ref || "PLSE-FLW-DEMO"}
+                      {activePaymentModal?.details.data?.tx_ref || "Unavailable"}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -993,7 +1062,7 @@ export default function OnboardingWizard() {
                   <div className="flex justify-between">
                     <span className="text-slate-500">Mode:</span>
                     <span className="text-emerald-700 font-bold">
-                      {activePaymentModal.details.isDemoMode ? "Instant Sandbox" : "Live Gateway"}
+                      Live Gateway
                     </span>
                   </div>
                 </div>
@@ -1008,8 +1077,9 @@ export default function OnboardingWizard() {
                   Complete Instant Payment
                 </button>
               </div>
-            )}
+            */}
           </div>
+        </div>
         </div>
       )}
     </div>

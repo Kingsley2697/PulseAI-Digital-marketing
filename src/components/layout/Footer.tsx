@@ -124,11 +124,6 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/dashboard" className="hover:text-[#ff5b37] transition-colors">
-                  Brief Submissions Tracker
-                </Link>
-              </li>
-              <li>
                 <Link href="/contact" className="hover:text-[#ff5b37] transition-colors">
                   Contact & Strategy Call
                 </Link>

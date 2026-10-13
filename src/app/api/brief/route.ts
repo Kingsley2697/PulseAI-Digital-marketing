@@ -85,26 +85,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  try {
-    await connectToDatabase();
-    const liveBriefs = await Brief.find().sort({ createdAt: -1 }).limit(100).lean();
-
-    return NextResponse.json({
-      success: true,
-      count: liveBriefs.length,
-      data: liveBriefs,
-    });
-  } catch (err: unknown) {
-    console.error("[API Brief Retrieval Error]:", err);
-    const msg = err instanceof Error ? err.message : "Error retrieving briefs from database.";
-    return NextResponse.json(
-      {
-        success: false,
-        error: msg,
-        count: 0,
-        data: [],
-      },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json(
+    { success: false, error: "This endpoint is not publicly available." },
+    { status: 403 }
+  );
 }

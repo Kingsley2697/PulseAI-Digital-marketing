@@ -6,8 +6,6 @@ import Hero from "@/components/landing/Hero";
 import ValueComparison from "@/components/landing/ValueComparison";
 import RoiCalculator from "@/components/landing/RoiCalculator";
 import ServicesGrid from "@/components/landing/ServicesGrid";
-import LiveAiAuditDemo from "@/components/landing/LiveAiAuditDemo";
-import CaseStudies from "@/components/landing/CaseStudies";
 import PricingSection from "@/components/landing/PricingSection";
 import FaqSection from "@/components/landing/FaqSection";
 
@@ -26,8 +24,6 @@ export default function HomePage() {
         <ValueComparison />
         <RoiCalculator />
         <ServicesGrid />
-        <LiveAiAuditDemo />
-        <CaseStudies />
         <PricingSection />
         <FaqSection />
       </main>
