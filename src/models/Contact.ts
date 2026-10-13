@@ -9,6 +9,15 @@ export interface IContact extends Document {
   estimatedBudget?: string;
   message: string;
   status: "new" | "replied" | "closed";
+  aiLeadAnalysis?: {
+    summary: string;
+    qualification: "high" | "medium" | "low";
+    recommendedNextStep: string;
+    suggestedServices: string[];
+    internalNotes: string;
+  };
+  hubspotContactId?: string;
+  automationCompletedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -23,6 +32,15 @@ const ContactSchema = new Schema<IContact>(
     estimatedBudget: { type: String, default: "$1,000 - $5,000" },
     message: { type: String, required: true },
     status: { type: String, enum: ["new", "replied", "closed"], default: "new" },
+    aiLeadAnalysis: {
+      summary: { type: String, default: "" },
+      qualification: { type: String, enum: ["high", "medium", "low"] },
+      recommendedNextStep: { type: String, default: "" },
+      suggestedServices: { type: [String], default: [] },
+      internalNotes: { type: String, default: "" },
+    },
+    hubspotContactId: { type: String, default: "" },
+    automationCompletedAt: { type: Date },
   },
   { timestamps: true }
 );

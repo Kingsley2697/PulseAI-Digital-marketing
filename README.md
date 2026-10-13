@@ -1,4 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PulseAI Digital
+
+Production marketing-lead intake and payment application.
+
+## Lead automation
+
+When a visitor submits the onboarding brief or contact form, the app always stores the submission first. If configured, it then:
+
+1. Uses OpenAI to generate an internal lead summary, qualification level, and recommended next step.
+2. Creates a HubSpot CRM contact.
+3. Sends the lead a Resend email acknowledgement, including the optional Calendly booking link.
+4. Sends a pre-approved WhatsApp Cloud API template acknowledgement.
+5. Sends the team its existing Telegram/email notification with the AI recommendation.
+
+No provider is called until its environment variables are supplied. Failures in an optional automation are recorded without rejecting the client submission.
+
+Copy the variables from `.env.local.example` into your deployment environment. The required configuration for the full workflow is:
+
+```text
+MONGODB_URI=
+OPENAI_API_KEY=
+HUBSPOT_PRIVATE_APP_TOKEN=
+RESEND_API_KEY=
+RESEND_FROM_EMAIL=
+CALENDLY_SCHEDULING_URL=
+WHATSAPP_ACCESS_TOKEN=
+WHATSAPP_PHONE_NUMBER_ID=
+WHATSAPP_TEMPLATE_NAME=
+```
+
+For WhatsApp, create and approve a business-initiated template containing one body variable: the customer name. The app does not send unapproved free-form outbound messages.
+
+The public list endpoints for brief and contact records are deliberately disabled. Re-enable staff views only after adding server-side authentication and authorization.
 
 ## Getting Started
 

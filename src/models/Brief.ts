@@ -38,6 +38,16 @@ export interface IBrief extends Document {
   cryptoAmount?: string;
   cryptoTxHash?: string;
 
+  aiLeadAnalysis?: {
+    summary: string;
+    qualification: "high" | "medium" | "low";
+    recommendedNextStep: string;
+    suggestedServices: string[];
+    internalNotes: string;
+  };
+  hubspotContactId?: string;
+  automationCompletedAt?: Date;
+
   // System
   status: "new" | "reviewing" | "in-progress" | "converted";
   createdAt: Date;
@@ -81,6 +91,15 @@ const BriefSchema = new Schema<IBrief>(
     cryptoDepositAddress: { type: String, default: "" },
     cryptoAmount: { type: String, default: "" },
     cryptoTxHash: { type: String, default: "" },
+    aiLeadAnalysis: {
+      summary: { type: String, default: "" },
+      qualification: { type: String, enum: ["high", "medium", "low"] },
+      recommendedNextStep: { type: String, default: "" },
+      suggestedServices: { type: [String], default: [] },
+      internalNotes: { type: String, default: "" },
+    },
+    hubspotContactId: { type: String, default: "" },
+    automationCompletedAt: { type: Date },
 
     status: { type: String, enum: ["new", "reviewing", "in-progress", "converted"], default: "new" },
   },

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { Brief } from "@/models/Brief";
 import { sendNotification } from "@/lib/notifications/notify";
+import { runLeadAutomation } from "@/lib/automation/lead-automation";
 
 const BriefSubmissionSchema = z.object({
   businessName: z.string().min(2, "Business name is required"),
@@ -38,6 +39,27 @@ export async function POST(req: NextRequest) {
     await connectToDatabase();
     const briefDoc = await Brief.create(validatedData);
 
+    const automation = await runLeadAutomation({
+      source: "brief",
+      recordId: String(briefDoc._id),
+      name: validatedData.contactName,
+      email: validatedData.email,
+      phone: validatedData.phone,
+      company: validatedData.businessName,
+      industry: validatedData.industry,
+      budget: validatedData.monthlyBudget,
+      services: validatedData.services,
+      goals: validatedData.primaryGoals,
+      message: validatedData.notes,
+      timeline: validatedData.timeline,
+    });
+
+    await Brief.findByIdAndUpdate(briefDoc._id, {
+      aiLeadAnalysis: automation.analysis,
+      hubspotContactId: automation.hubspotContactId || "",
+      automationCompletedAt: new Date(),
+    });
+
     // Trigger real-time notification
     await sendNotification({
       type: "BRIEF_SUBMITTED",
@@ -53,6 +75,8 @@ export async function POST(req: NextRequest) {
         Currency: validatedData.preferredCurrency,
         PaymentOption: validatedData.paymentMethod,
         BriefId: String(briefDoc._id),
+        LeadQualification: automation.analysis?.qualification || "pending manual review",
+        AIRecommendation: automation.analysis?.recommendedNextStep || "Review manually",
       },
     });
 

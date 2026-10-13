@@ -3,6 +3,7 @@ import { z } from "zod";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { Contact } from "@/models/Contact";
 import { sendNotification } from "@/lib/notifications/notify";
+import { runLeadAutomation } from "@/lib/automation/lead-automation";
 
 const ContactSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters"),
@@ -22,6 +23,24 @@ export async function POST(req: NextRequest) {
     await connectToDatabase();
     const contactDoc = await Contact.create(validated);
 
+    const automation = await runLeadAutomation({
+      source: "contact",
+      recordId: String(contactDoc._id),
+      name: validated.fullName,
+      email: validated.email,
+      phone: validated.phone,
+      company: validated.companyName,
+      budget: validated.estimatedBudget,
+      services: [validated.serviceInterest],
+      message: validated.message,
+    });
+
+    await Contact.findByIdAndUpdate(contactDoc._id, {
+      aiLeadAnalysis: automation.analysis,
+      hubspotContactId: automation.hubspotContactId || "",
+      automationCompletedAt: new Date(),
+    });
+
     // Trigger real notification
     await sendNotification({
       type: "CONTACT_INQUIRY",
@@ -35,6 +54,8 @@ export async function POST(req: NextRequest) {
         Budget: validated.estimatedBudget,
         Message: validated.message,
         ContactId: String(contactDoc._id),
+        LeadQualification: automation.analysis?.qualification || "pending manual review",
+        AIRecommendation: automation.analysis?.recommendedNextStep || "Review manually",
       },
     });
 
@@ -66,13 +87,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  try {
-    await connectToDatabase();
-    const contacts = await Contact.find().sort({ createdAt: -1 }).limit(100).lean();
-    return NextResponse.json({ success: true, count: contacts.length, data: contacts });
-  } catch (err: unknown) {
-    console.error("[Contact Retrieval Error]:", err);
-    const msg = err instanceof Error ? err.message : "Error retrieving contact records.";
-    return NextResponse.json({ success: false, error: msg, count: 0, data: [] }, { status: 500 });
-  }
+  return NextResponse.json(
+    { success: false, error: "This endpoint is not publicly available." },
+    { status: 403 }
+  );
 }
