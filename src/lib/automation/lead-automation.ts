@@ -1,3 +1,5 @@
+import { runAiTask } from "@/lib/ai/openrouter";
+
 type LeadSource = "brief" | "contact";
 
 export type LeadAutomationInput = {
@@ -46,7 +48,7 @@ function safeText(value: string | undefined, maxLength = 1_500) {
 }
 
 async function analyzeLead(input: LeadAutomationInput): Promise<LeadAnalysis> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) return defaultAnalysis;
 
   const leadContext = {
@@ -60,53 +62,13 @@ async function analyzeLead(input: LeadAutomationInput): Promise<LeadAnalysis> {
     timeline: safeText(input.timeline),
   };
 
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: process.env.OPENAI_LEAD_MODEL || "gpt-5-mini",
-      store: false,
-      instructions:
-        "You are a B2B growth-agency lead analyst. Analyze only the supplied lead details. Do not invent facts, promise outcomes, set prices, or make decisions on behalf of the agency. Return valid JSON matching the required schema.",
-      input: `Lead details:\n${JSON.stringify(leadContext)}`,
-      text: {
-        format: {
-          type: "json_schema",
-          name: "lead_analysis",
-          strict: true,
-          schema: {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              summary: { type: "string" },
-              qualification: { type: "string", enum: ["high", "medium", "low"] },
-              recommendedNextStep: { type: "string" },
-              suggestedServices: { type: "array", items: { type: "string" } },
-              internalNotes: { type: "string" },
-            },
-            required: [
-              "summary",
-              "qualification",
-              "recommendedNextStep",
-              "suggestedServices",
-              "internalNotes",
-            ],
-          },
-        },
-      },
-    }),
+  const output = await runAiTask("lead_analytics", {
+    systemPrompt:
+      "You are a B2B growth-agency lead analyst. Analyze only the supplied lead details. Do not invent facts, promise outcomes, set prices, or make decisions on behalf of the agency. Return JSON only with summary, qualification (high, medium, or low), recommendedNextStep, suggestedServices (array), and internalNotes.",
+    userPrompt: `Lead details:\n${JSON.stringify(leadContext)}`,
+    responseFormat: "json",
   });
-
-  if (!response.ok) {
-    throw new Error(`OpenAI lead analysis failed (${response.status}).`);
-  }
-
-  const data = (await response.json()) as { output_text?: string };
-  if (!data.output_text) throw new Error("OpenAI returned no lead analysis.");
-  return JSON.parse(data.output_text) as LeadAnalysis;
+  return JSON.parse(output) as LeadAnalysis;
 }
 
 async function createHubSpotContact(input: LeadAutomationInput) {
@@ -202,7 +164,7 @@ export async function runLeadAutomation(input: LeadAutomationInput): Promise<Lea
 
   try {
     analysis = await analyzeLead(input);
-    aiAnalyzed = Boolean(process.env.OPENAI_API_KEY);
+    aiAnalyzed = Boolean(process.env.OPENROUTER_API_KEY);
   } catch (error) {
     errors.push(error instanceof Error ? error.message : "Lead analysis failed.");
   }

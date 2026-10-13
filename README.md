@@ -6,7 +6,7 @@ Production marketing-lead intake and payment application.
 
 When a visitor submits the onboarding brief or contact form, the app always stores the submission first. If configured, it then:
 
-1. Uses OpenAI to generate an internal lead summary, qualification level, and recommended next step.
+1. Uses OpenRouter to generate an internal lead summary, qualification level, and recommended next step.
 2. Creates a HubSpot CRM contact.
 3. Sends the lead a Resend email acknowledgement, including the optional Calendly booking link.
 4. Sends a pre-approved WhatsApp Cloud API template acknowledgement.
@@ -18,7 +18,10 @@ Copy the variables from `.env.local.example` into your deployment environment. T
 
 ```text
 MONGODB_URI=
-OPENAI_API_KEY=
+OPENROUTER_API_KEY=
+OPENROUTER_LEAD_ANALYTICS_MODEL=
+OPENROUTER_CLIENT_COPYWRITING_MODEL=
+OPENROUTER_BULK_BRAINSTORMING_MODEL=
 HUBSPOT_PRIVATE_APP_TOKEN=
 RESEND_API_KEY=
 RESEND_FROM_EMAIL=
