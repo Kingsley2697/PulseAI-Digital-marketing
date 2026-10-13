@@ -11,6 +11,7 @@ When a visitor submits the onboarding brief or contact form, the app always stor
 3. Sends the lead a Resend email acknowledgement, including the optional Calendly booking link.
 4. Sends a pre-approved WhatsApp Cloud API template acknowledgement.
 5. Sends the team its existing Telegram/email notification with the AI recommendation.
+6. Produces an internal proposal draft, 30-day launch-plan draft, and approval-gated task queue for full briefs.
 
 No provider is called until its environment variables are supplied. Failures in an optional automation are recorded without rejecting the client submission.
 
@@ -29,11 +30,14 @@ CALENDLY_SCHEDULING_URL=
 WHATSAPP_ACCESS_TOKEN=
 WHATSAPP_PHONE_NUMBER_ID=
 WHATSAPP_TEMPLATE_NAME=
+INTERNAL_AUTOMATION_TOKEN=
 ```
 
 For WhatsApp, create and approve a business-initiated template containing one body variable: the customer name. The app does not send unapproved free-form outbound messages.
 
 The public list endpoints for brief and contact records are deliberately disabled. Re-enable staff views only after adding server-side authentication and authorization.
+
+Proposal delivery requires a staff-only `POST /api/internal/briefs/:briefId/approve-proposal` request with `Authorization: Bearer <INTERNAL_AUTOMATION_TOKEN>`. This deliberate approval boundary prevents AI from committing the business to pricing, contractual terms, advertising spend, or campaign publication.
 
 ## Getting Started
 

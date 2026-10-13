@@ -4,6 +4,7 @@ import { connectToDatabase } from "@/lib/db/mongodb";
 import { Brief } from "@/models/Brief";
 import { sendNotification } from "@/lib/notifications/notify";
 import { runLeadAutomation } from "@/lib/automation/lead-automation";
+import { AutomationTask } from "@/models/AutomationTask";
 
 const BriefSubmissionSchema = z.object({
   businessName: z.string().min(2, "Business name is required"),
@@ -58,7 +59,13 @@ export async function POST(req: NextRequest) {
       aiLeadAnalysis: automation.analysis,
       hubspotContactId: automation.hubspotContactId || "",
       automationCompletedAt: new Date(),
+      proposalDraft: automation.proposalDraft,
+      launchPlan: automation.launchPlan,
     });
+
+    await AutomationTask.insertMany(
+      automation.tasks.map((task) => ({ ...task, sourceType: "brief", sourceId: briefDoc._id }))
+    );
 
     // Trigger real-time notification
     await sendNotification({

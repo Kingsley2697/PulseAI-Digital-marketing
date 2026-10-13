@@ -47,6 +47,17 @@ export interface IBrief extends Document {
   };
   hubspotContactId?: string;
   automationCompletedAt?: Date;
+  proposalDraft?: {
+    subject: string;
+    body: string;
+    scope: string[];
+    nextSteps: string[];
+  };
+  launchPlan?: {
+    positioning: string;
+    firstThirtyDays: string[];
+    campaignIdeas: string[];
+  };
 
   // System
   status: "new" | "reviewing" | "in-progress" | "converted";
@@ -100,6 +111,17 @@ const BriefSchema = new Schema<IBrief>(
     },
     hubspotContactId: { type: String, default: "" },
     automationCompletedAt: { type: Date },
+    proposalDraft: {
+      subject: { type: String, default: "" },
+      body: { type: String, default: "" },
+      scope: { type: [String], default: [] },
+      nextSteps: { type: [String], default: [] },
+    },
+    launchPlan: {
+      positioning: { type: String, default: "" },
+      firstThirtyDays: { type: [String], default: [] },
+      campaignIdeas: { type: [String], default: [] },
+    },
 
     status: { type: String, enum: ["new", "reviewing", "in-progress", "converted"], default: "new" },
   },

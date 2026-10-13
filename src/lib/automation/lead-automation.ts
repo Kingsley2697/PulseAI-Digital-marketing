@@ -27,6 +27,10 @@ export type LeadAnalysis = {
 
 export type LeadAutomationResult = {
   analysis?: LeadAnalysis;
+  proposalDraft?: ProposalDraft;
+  launchPlan?: LaunchPlan;
+  clientReplyDraft?: string;
+  tasks: AutomationTaskDraft[];
   hubspotContactId?: string;
   aiAnalyzed: boolean;
   crmCreated: boolean;
@@ -35,6 +39,65 @@ export type LeadAutomationResult = {
   errors: string[];
 };
 
+export type ProposalDraft = {
+  subject: string;
+  body: string;
+  scope: string[];
+  nextSteps: string[];
+};
+
+export type LaunchPlan = {
+  positioning: string;
+  firstThirtyDays: string[];
+  campaignIdeas: string[];
+};
+
+export type AutomationTaskDraft = {
+  title: string;
+  description: string;
+  category: "review" | "proposal" | "onboarding" | "campaign";
+};
+
+export async function sendApprovedProposal(input: {
+  name: string;
+  email: string;
+  company: string;
+  proposal: ProposalDraft;
+}) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.RESEND_FROM_EMAIL;
+  if (!apiKey || !from) {
+    throw new Error("Resend must be configured before an approved proposal can be sent.");
+  }
+
+  const proposalText = [
+    `Hi ${input.name},`,
+    "",
+    input.proposal.body,
+    "",
+    "Proposed scope:",
+    ...input.proposal.scope.map((item) => `- ${item}`),
+    "",
+    "Next steps:",
+    ...input.proposal.nextSteps.map((item) => `- ${item}`),
+    "",
+    "Reply to this email or use the scheduling link previously shared to discuss the proposal.",
+  ].join("\n");
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from,
+      to: [input.email],
+      subject: input.proposal.subject || `Your PulseAI proposal for ${input.company}`,
+      text: proposalText,
+    }),
+  });
+
+  if (!response.ok) throw new Error(`Resend proposal delivery failed (${response.status}).`);
+}
+
 const defaultAnalysis: LeadAnalysis = {
   summary: "New lead submitted. Review the submitted requirements before responding.",
   qualification: "medium",
@@ -42,6 +105,19 @@ const defaultAnalysis: LeadAnalysis = {
   suggestedServices: [],
   internalNotes: "Automated AI analysis is not configured.",
 };
+
+const defaultTasks: AutomationTaskDraft[] = [
+  {
+    title: "Review AI lead analysis",
+    description: "Validate the lead context, qualification, and recommended next step before client-facing action.",
+    category: "review",
+  },
+  {
+    title: "Approve client proposal",
+    description: "Confirm commercial scope, pricing, and terms before any proposal is sent.",
+    category: "proposal",
+  },
+];
 
 function safeText(value: string | undefined, maxLength = 1_500) {
   return (value || "").trim().slice(0, maxLength);
@@ -69,6 +145,67 @@ async function analyzeLead(input: LeadAutomationInput): Promise<LeadAnalysis> {
     responseFormat: "json",
   });
   return JSON.parse(output) as LeadAnalysis;
+}
+
+async function createProposalDraft(input: LeadAutomationInput, analysis: LeadAnalysis): Promise<ProposalDraft> {
+  const output = await runAiTask("client_copywriting", {
+    systemPrompt:
+      "You write concise, professional B2B agency proposal drafts. Use only supplied facts. Do not quote a price, guarantee results, claim work has started, or make contractual commitments. Return JSON only with subject, body, scope (array), and nextSteps (array).",
+    userPrompt: `Create an internal proposal draft for this lead. It requires human approval before sending.\nLead: ${JSON.stringify({
+      company: input.company,
+      industry: input.industry,
+      budget: input.budget,
+      services: input.services,
+      goals: input.goals,
+      timeline: input.timeline,
+      message: input.message,
+      analysis,
+    })}`,
+    responseFormat: "json",
+    maxTokens: 1_000,
+    temperature: 0.4,
+  });
+
+  return JSON.parse(output) as ProposalDraft;
+}
+
+async function createLaunchPlan(input: LeadAutomationInput, analysis: LeadAnalysis): Promise<LaunchPlan> {
+  const output = await runAiTask("bulk_brainstorming", {
+    systemPrompt:
+      "You are an internal growth-marketing planner. Generate practical, non-guaranteed starting ideas from the supplied facts. Do not invent client assets, claim results, or authorize advertising spend. Return JSON only with positioning, firstThirtyDays (array), and campaignIdeas (array).",
+    userPrompt: `Create an internal 30-day launch-plan draft for this lead. It requires strategy-team review before use.\nLead: ${JSON.stringify({
+      company: input.company,
+      industry: input.industry,
+      budget: input.budget,
+      services: input.services,
+      goals: input.goals,
+      timeline: input.timeline,
+      message: input.message,
+      analysis,
+    })}`,
+    responseFormat: "json",
+    maxTokens: 1_200,
+    temperature: 0.7,
+  });
+
+  return JSON.parse(output) as LaunchPlan;
+}
+
+async function createClientReplyDraft(input: LeadAutomationInput, analysis: LeadAnalysis) {
+  return runAiTask("client_copywriting", {
+    systemPrompt:
+      "Write a concise and warm internal email-reply draft for a B2B agency. Do not state pricing, make guarantees, or claim work has begun. It must invite the lead to schedule a call if a link is supplied.",
+    userPrompt: `Draft a reply to this enquiry. This is an internal draft requiring approval before it is sent.\nLead: ${JSON.stringify({
+      name: input.name,
+      company: input.company,
+      service: input.services,
+      message: input.message,
+      analysis,
+      schedulingUrl: process.env.CALENDLY_SCHEDULING_URL || "",
+    })}`,
+    maxTokens: 500,
+    temperature: 0.4,
+  });
 }
 
 async function createHubSpotContact(input: LeadAutomationInput) {
@@ -161,12 +298,34 @@ export async function runLeadAutomation(input: LeadAutomationInput): Promise<Lea
   const errors: string[] = [];
   let analysis = defaultAnalysis;
   let aiAnalyzed = false;
+  let proposalDraft: ProposalDraft | undefined;
+  let launchPlan: LaunchPlan | undefined;
+  let clientReplyDraft: string | undefined;
 
   try {
     analysis = await analyzeLead(input);
     aiAnalyzed = Boolean(process.env.OPENROUTER_API_KEY);
   } catch (error) {
     errors.push(error instanceof Error ? error.message : "Lead analysis failed.");
+  }
+
+  if (process.env.OPENROUTER_API_KEY) {
+    if (input.source === "brief") {
+      const [proposal, plan] = await Promise.allSettled([
+        createProposalDraft(input, analysis),
+        createLaunchPlan(input, analysis),
+      ]);
+      if (proposal.status === "fulfilled") proposalDraft = proposal.value;
+      else errors.push(proposal.reason instanceof Error ? proposal.reason.message : "Proposal drafting failed.");
+      if (plan.status === "fulfilled") launchPlan = plan.value;
+      else errors.push(plan.reason instanceof Error ? plan.reason.message : "Launch-plan drafting failed.");
+    } else {
+      try {
+        clientReplyDraft = await createClientReplyDraft(input, analysis);
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : "Client reply drafting failed.");
+      }
+    }
   }
 
   const [hubspot, email, whatsapp] = await Promise.allSettled([
@@ -183,6 +342,24 @@ export async function runLeadAutomation(input: LeadAutomationInput): Promise<Lea
 
   return {
     analysis,
+    proposalDraft,
+    launchPlan,
+    clientReplyDraft,
+    tasks: input.source === "brief"
+      ? [
+          ...defaultTasks,
+          {
+            title: "Review 30-day launch plan",
+            description: "Validate channels, creative ideas, tracking, and dependencies before onboarding starts.",
+            category: "onboarding",
+          },
+          {
+            title: "Approve campaign activation",
+            description: "Confirm client approval, access, tracking, creative, and ad-spend authorization before launch.",
+            category: "campaign",
+          },
+        ]
+      : defaultTasks,
     hubspotContactId: hubspot.status === "fulfilled" ? hubspot.value : undefined,
     aiAnalyzed,
     crmCreated: hubspot.status === "fulfilled" && Boolean(hubspot.value),

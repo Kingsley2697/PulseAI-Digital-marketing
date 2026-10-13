@@ -4,6 +4,7 @@ import { connectToDatabase } from "@/lib/db/mongodb";
 import { Contact } from "@/models/Contact";
 import { sendNotification } from "@/lib/notifications/notify";
 import { runLeadAutomation } from "@/lib/automation/lead-automation";
+import { AutomationTask } from "@/models/AutomationTask";
 
 const ContactSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters"),
@@ -39,7 +40,12 @@ export async function POST(req: NextRequest) {
       aiLeadAnalysis: automation.analysis,
       hubspotContactId: automation.hubspotContactId || "",
       automationCompletedAt: new Date(),
+      clientReplyDraft: automation.clientReplyDraft || "",
     });
+
+    await AutomationTask.insertMany(
+      automation.tasks.map((task) => ({ ...task, sourceType: "contact", sourceId: contactDoc._id }))
+    );
 
     // Trigger real notification
     await sendNotification({

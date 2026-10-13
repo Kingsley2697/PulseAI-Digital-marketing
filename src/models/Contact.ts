@@ -18,6 +18,7 @@ export interface IContact extends Document {
   };
   hubspotContactId?: string;
   automationCompletedAt?: Date;
+  clientReplyDraft?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,6 +42,7 @@ const ContactSchema = new Schema<IContact>(
     },
     hubspotContactId: { type: String, default: "" },
     automationCompletedAt: { type: Date },
+    clientReplyDraft: { type: String, default: "" },
   },
   { timestamps: true }
 );
