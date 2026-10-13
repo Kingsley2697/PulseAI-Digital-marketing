@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { connectToDatabase } from "@/lib/db/mongodb";
-import { Contact, inMemoryContacts } from "@/models/Contact";
+import { Contact } from "@/models/Contact";
 import { sendNotification } from "@/lib/notifications/notify";
 
 const ContactSchema = z.object({
@@ -19,37 +19,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validated = ContactSchema.parse(body);
 
-    const db = await connectToDatabase();
-    let savedRecord: any;
+    await connectToDatabase();
+    const contactDoc = await Contact.create(validated);
 
-    if (db) {
-      try {
-        const contactDoc = await Contact.create(validated);
-        savedRecord = contactDoc.toObject();
-      } catch (dbErr) {
-        console.warn("MongoDB insert error for Contact, fallback to memory:", dbErr);
-        savedRecord = {
-          _id: "contact_" + Date.now(),
-          ...validated,
-          createdAt: new Date(),
-          status: "new",
-        };
-        inMemoryContacts.unshift(savedRecord);
-      }
-    } else {
-      savedRecord = {
-        _id: "contact_" + Date.now(),
-        ...validated,
-        createdAt: new Date(),
-        status: "new",
-      };
-      inMemoryContacts.unshift(savedRecord);
-    }
-
-    // Trigger notification
+    // Trigger real notification
     await sendNotification({
       type: "CONTACT_INQUIRY",
-      title: `📩 New Contact Inquiry: ${validated.fullName}`,
+      title: `📩 New Client Inquiry: ${validated.fullName}`,
       data: {
         Name: validated.fullName,
         Email: validated.email,
@@ -58,6 +34,7 @@ export async function POST(req: NextRequest) {
         Service: validated.serviceInterest,
         Budget: validated.estimatedBudget,
         Message: validated.message,
+        ContactId: String(contactDoc._id),
       },
     });
 
@@ -65,7 +42,7 @@ export async function POST(req: NextRequest) {
       {
         success: true,
         message: "Thank you for reaching out! A senior PulseAI Growth Strategist will respond within 2 business hours.",
-        contactId: savedRecord._id,
+        contactId: String(contactDoc._id),
       },
       { status: 201 }
     );
@@ -81,26 +58,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.error("Contact API error:", err);
-    return NextResponse.json(
-      { success: false, error: "An unexpected error occurred while sending your message." },
-      { status: 500 }
-    );
+    console.error("[Contact API Error]:", err);
+    const msg =
+      err instanceof Error ? err.message : "An unexpected error occurred while sending your message.";
+    return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 }
 
 export async function GET() {
   try {
-    const db = await connectToDatabase();
-    if (db) {
-      const contacts = await Contact.find().sort({ createdAt: -1 }).limit(50).lean();
-      if (contacts.length > 0) {
-        return NextResponse.json({ success: true, count: contacts.length, data: contacts });
-      }
-    }
-    return NextResponse.json({ success: true, count: inMemoryContacts.length, data: inMemoryContacts });
-  } catch (err) {
-    console.error("Error retrieving contact messages:", err);
-    return NextResponse.json({ success: true, count: 0, data: [] });
+    await connectToDatabase();
+    const contacts = await Contact.find().sort({ createdAt: -1 }).limit(100).lean();
+    return NextResponse.json({ success: true, count: contacts.length, data: contacts });
+  } catch (err: unknown) {
+    console.error("[Contact Retrieval Error]:", err);
+    const msg = err instanceof Error ? err.message : "Error retrieving contact records.";
+    return NextResponse.json({ success: false, error: msg, count: 0, data: [] }, { status: 500 });
   }
 }

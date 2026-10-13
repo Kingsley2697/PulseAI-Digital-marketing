@@ -14,25 +14,36 @@ export default function LiveAiAuditDemo() {
     budgetSplit: string;
     botWorkflow: string;
     projectedCpl: string;
-  }>(null);
+  const [modelBadge, setModelBadge] = useState("PulseAI Strategy Synthesizer Core");
 
-  const handleGenerate = (e: React.FormEvent) => {
+  const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!domain) return;
 
     setIsGenerating(true);
     setGeneratedPlan(null);
 
-    setTimeout(() => {
-      setIsGenerating(false);
-      setGeneratedPlan({
-        hook: `Dynamic Problem-Solution Creative: Highlight 3 hidden bottlenecks facing ${niche} buyers with high-contrast motion thumbnail.`,
-        targetAngle: `Algorithmic lookalike audiences built from 95% video completion cohorts + server-side CAPI pixel triggers.`,
-        budgetSplit: "60% Top-of-Funnel AI Video Ads • 25% High-Intent Retargeting • 15% WhatsApp Bot Instant Re-engagement",
-        botWorkflow: "Sub-30 second WhatsApp booking agent auto-qualifying budget & booking directly into Calendly.",
-        projectedCpl: niche === "E-commerce" ? "$14 - $19 (or ₦18,000)" : "$38 - $46 (or ₦42,000)",
+    try {
+      const res = await fetch("/api/audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain, niche }),
       });
-    }, 1200);
+
+      const resData = await res.json();
+      if (resData.success && resData.data) {
+        setGeneratedPlan(resData.data);
+        if (resData.model) {
+          setModelBadge(resData.model);
+        }
+      } else {
+        alert(resData.error || "Failed to generate strategy analysis.");
+      }
+    } catch (err) {
+      console.error("Strategy generation error:", err);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (

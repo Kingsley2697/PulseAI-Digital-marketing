@@ -18,14 +18,25 @@ export interface IBrief extends Document {
   services: string[];
   timeline?: string;
 
-  // Step 4: Contact & Payment Info
+  // Step 4: Contact & Billing Info
   contactName: string;
   email: string;
   phone: string;
   notes?: string;
   preferredCurrency: "USD" | "NGN";
   paymentMethod?: "flutterwave" | "crypto" | "invoice";
-  paymentStatus: "pending" | "paid" | "scheduled";
+  paymentStatus: "pending" | "verifying" | "paid" | "scheduled" | "failed";
+
+  // Real Payment Tracking Fields
+  paymentRef?: string;
+  paymentAmount?: number;
+  paymentVerifiedAt?: Date;
+  flwTransactionId?: string;
+  cryptoInvoiceId?: string;
+  cryptoNetwork?: string;
+  cryptoDepositAddress?: string;
+  cryptoAmount?: string;
+  cryptoTxHash?: string;
 
   // System
   status: "new" | "reviewing" | "in-progress" | "converted";
@@ -55,15 +66,26 @@ const BriefSchema = new Schema<IBrief>(
     notes: { type: String, default: "" },
     preferredCurrency: { type: String, enum: ["USD", "NGN"], default: "USD" },
     paymentMethod: { type: String, enum: ["flutterwave", "crypto", "invoice"], default: "invoice" },
-    paymentStatus: { type: String, enum: ["pending", "paid", "scheduled"], default: "pending" },
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "verifying", "paid", "scheduled", "failed"],
+      default: "pending",
+    },
+
+    paymentRef: { type: String, default: "" },
+    paymentAmount: { type: Number },
+    paymentVerifiedAt: { type: Date },
+    flwTransactionId: { type: String, default: "" },
+    cryptoInvoiceId: { type: String, default: "" },
+    cryptoNetwork: { type: String, default: "" },
+    cryptoDepositAddress: { type: String, default: "" },
+    cryptoAmount: { type: String, default: "" },
+    cryptoTxHash: { type: String, default: "" },
 
     status: { type: String, enum: ["new", "reviewing", "in-progress", "converted"], default: "new" },
   },
   { timestamps: true }
 );
-
-// Fallback in-memory store in case live MongoDB instance is not configured locally
-export const inMemoryBriefs: Array<Record<string, unknown>> = [];
 
 export const Brief: Model<IBrief> =
   mongoose.models.Brief || mongoose.model<IBrief>("Brief", BriefSchema);

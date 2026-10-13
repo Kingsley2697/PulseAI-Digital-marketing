@@ -1,10 +1,7 @@
 import mongoose from "mongoose";
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/pulseai_digital";
+const MONGODB_URI = process.env.MONGODB_URI;
 
-/**
- * Global cache to prevent multiple connections in development hot reload.
- */
 interface MongooseCache {
   conn: typeof mongoose | null;
   promise: Promise<typeof mongoose> | null;
@@ -21,30 +18,31 @@ if (!global.mongooseCache) {
   global.mongooseCache = cached;
 }
 
-export async function connectToDatabase(): Promise<typeof mongoose | null> {
-  // If no URI or in local test environment where MongoDB daemon isn't running,
-  // we catch errors gracefully so the application stays operational.
-  if (cached.conn) {
+/**
+ * Connect to MongoDB instance.
+ * Throws an explicit error if MONGODB_URI is not set or connection fails.
+ */
+export async function connectToDatabase(): Promise<typeof mongoose> {
+  if (!MONGODB_URI) {
+    throw new Error(
+      "Database configuration missing: Please set MONGODB_URI in your .env.local file to connect to your live MongoDB database."
+    );
+  }
+
+  if (cached.conn && mongoose.connection.readyState === 1) {
     return cached.conn;
   }
 
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 8000,
     };
 
-    cached.promise = mongoose
-      .connect(MONGODB_URI, opts)
-      .then((mongooseInstance) => {
-        console.log("Successfully connected to MongoDB.");
-        return mongooseInstance;
-      })
-      .catch((err) => {
-        console.warn("MongoDB connection fallback (Live DB not reachable or unconfigured):", err.message);
-        cached.promise = null;
-        return null as unknown as typeof mongoose;
-      });
+    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongooseInstance) => {
+      console.log("[MongoDB Production Engine] Successfully connected to live MongoDB.");
+      return mongooseInstance;
+    });
   }
 
   try {
@@ -52,7 +50,7 @@ export async function connectToDatabase(): Promise<typeof mongoose | null> {
     return cached.conn;
   } catch (error) {
     cached.promise = null;
-    console.warn("Could not establish live MongoDB connection. In-memory fallback will be utilized.", error);
-    return null;
+    console.error("[MongoDB Connection Failure]:", error);
+    throw error;
   }
 }

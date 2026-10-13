@@ -27,7 +27,5 @@ const ContactSchema = new Schema<IContact>(
   { timestamps: true }
 );
 
-export const inMemoryContacts: Array<Record<string, unknown>> = [];
-
 export const Contact: Model<IContact> =
   mongoose.models.Contact || mongoose.model<IContact>("Contact", ContactSchema);

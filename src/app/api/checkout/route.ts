@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { initializeFlutterwavePayment } from "@/lib/payments/flutterwave";
 import { generateCryptoInvoice } from "@/lib/payments/crypto";
 import { sendNotification } from "@/lib/notifications/notify";
+import { connectToDatabase } from "@/lib/db/mongodb";
+import { Brief } from "@/models/Brief";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const {
-      gateway, // "flutterwave" | "crypto" | "test"
+      gateway, // "flutterwave" | "crypto"
       amount,
       currency = "USD",
       customerEmail,
@@ -29,8 +31,8 @@ export async function POST(req: NextRequest) {
       const tx_ref = `PLSE-FLW-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
       const protocol = req.headers.get("x-forwarded-proto") || "http";
       const host = req.headers.get("host") || "localhost:3000";
-      const redirect_url = `${protocol}://${host}/get-started?payment_success=true&tx_ref=${tx_ref}&plan=${encodeURIComponent(
-        planName
+      const redirect_url = `${protocol}://${host}/api/checkout/verify?briefId=${encodeURIComponent(
+        briefId || ""
       )}`;
 
       const flwResult = await initializeFlutterwavePayment({
@@ -49,12 +51,39 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      if (!flwResult.success) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: flwResult.error || "Failed to initialize Flutterwave payment session.",
+          },
+          { status: 400 }
+        );
+      }
+
+      // Record transaction reference against the MongoDB Brief if briefId provided
+      if (briefId) {
+        try {
+          await connectToDatabase();
+          await Brief.findByIdAndUpdate(briefId, {
+            paymentRef: tx_ref,
+            paymentAmount: Number(amount),
+            paymentMethod: "flutterwave",
+            preferredCurrency: currency.toUpperCase() as "USD" | "NGN",
+          });
+        } catch (dbErr) {
+          console.warn("[DB Warning during checkout update]:", dbErr);
+        }
+      }
+
       return NextResponse.json({
+        success: true,
         gateway: "flutterwave",
-        ...flwResult,
+        checkoutUrl: flwResult.checkoutUrl,
+        tx_ref,
       });
     } else if (gateway === "crypto") {
-      const cryptoInvoice = generateCryptoInvoice({
+      const cryptoInvoice = await generateCryptoInvoice({
         briefId,
         amountUsd: Number(amount),
         currency: cryptoCurrency,
@@ -62,8 +91,36 @@ export async function POST(req: NextRequest) {
         clientName: customerName,
       });
 
+      if (!cryptoInvoice.success) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: cryptoInvoice.error || "Failed to generate crypto invoice.",
+          },
+          { status: 400 }
+        );
+      }
+
+      // Record invoice details against MongoDB Brief
+      if (briefId) {
+        try {
+          await connectToDatabase();
+          await Brief.findByIdAndUpdate(briefId, {
+            cryptoInvoiceId: cryptoInvoice.invoiceId,
+            cryptoNetwork: cryptoInvoice.network,
+            cryptoDepositAddress: cryptoInvoice.depositAddress,
+            cryptoAmount: cryptoInvoice.cryptoAmount,
+            paymentAmount: Number(amount),
+            paymentMethod: "crypto",
+            paymentStatus: "pending",
+          });
+        } catch (dbErr) {
+          console.warn("[DB Warning during crypto invoice record]:", dbErr);
+        }
+      }
+
       await sendNotification({
-        type: "PAYMENT_CONFIRMED",
+        type: "BRIEF_SUBMITTED",
         title: `⚡ Crypto Invoice Generated: ${customerName}`,
         data: {
           InvoiceId: cryptoInvoice.invoiceId,
@@ -80,27 +137,13 @@ export async function POST(req: NextRequest) {
         invoice: cryptoInvoice,
       });
     } else {
-      // Instant Sandbox / Test Simulator Mode
-      const simulatedRef = `PULSE-TEST-${Date.now()}`;
-
-      await sendNotification({
-        type: "PAYMENT_CONFIRMED",
-        title: `💳 Retainer Confirmed: ${customerName}`,
-        data: {
-          TransactionRef: simulatedRef,
-          Client: `${customerName} (${customerEmail})`,
-          Plan: planName,
-          Amount: `${currency} ${amount}`,
-          Status: "Simulated Instant Settlement",
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid payment gateway selected. Choose 'flutterwave' or 'crypto'.",
         },
-      });
-
-      return NextResponse.json({
-        success: true,
-        gateway: "sandbox",
-        tx_ref: simulatedRef,
-        message: "Demo payment simulated successfully! Retainer activated.",
-      });
+        { status: 400 }
+      );
     }
   } catch (err: unknown) {
     console.error("Payment checkout error:", err);

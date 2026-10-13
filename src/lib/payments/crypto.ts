@@ -1,5 +1,6 @@
 /**
- * Crypto Gateway Service (USDT, BTC, ETH) for International USD Client Billing
+ * Live Crypto Gateway Service (USDT, BTC, ETH) for International Client Billing
+ * Uses direct on-chain receiving wallets and real blockchain explorer verification links.
  */
 
 export interface CryptoInvoiceRequest {
@@ -19,51 +20,114 @@ export interface CryptoInvoiceResponse {
   rateUsd: number;
   qrCodeUrl: string;
   expiresInMinutes: number;
-  isMock: boolean;
+  explorerUrl: string;
+  error?: string;
 }
 
-export function generateCryptoInvoice(request: CryptoInvoiceRequest): CryptoInvoiceResponse {
-  const invoiceId = "PULSE-CRYPTO-" + Math.random().toString(36).substring(2, 9).toUpperCase();
+/**
+ * Fetch live cryptocurrency rates or fall back to baseline market pegs
+ */
+async function getLiveCryptoRate(currency: string): Promise<number> {
+  if (currency === "USDT_TRC20" || currency === "USDT_ERC20") {
+    return 1.0; // Tether is 1:1 USD peg
+  }
 
-  const mockWallets = {
+  try {
+    const coinId = currency === "BTC" ? "bitcoin" : "ethereum";
+    const res = await fetch(
+      `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`,
+      { next: { revalidate: 60 }, signal: AbortSignal.timeout(4000) }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      if (data[coinId]?.usd) {
+        return Number(data[coinId].usd);
+      }
+    }
+  } catch (err) {
+    console.warn("[Crypto Rate Fetch Warning]: Using fallback market rate", err);
+  }
+
+  // Fallback market rates if rate provider is temporarily unreachable
+  return currency === "BTC" ? 68500 : 3450;
+}
+
+export async function generateCryptoInvoice(
+  request: CryptoInvoiceRequest
+): Promise<CryptoInvoiceResponse> {
+  const invoiceId = "PULSE-INV-" + Math.random().toString(36).substring(2, 9).toUpperCase();
+
+  const walletConfigs: Record<
+    string,
+    { addressEnv: string | undefined; network: string; defaultExplorer: string }
+  > = {
     USDT_TRC20: {
-      address: process.env.CRYPTO_USDT_TRC20_WALLET || "TP2R8aK9nB5GkM7wXZ4aF3jL8vN9qP1yZ2",
+      addressEnv: process.env.CRYPTO_USDT_TRC20_WALLET,
       network: "TRON (TRC-20)",
-      rate: 1.0,
+      defaultExplorer: "https://tronscan.org/#/transaction/",
     },
     USDT_ERC20: {
-      address: process.env.CRYPTO_ETH_WALLET || "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
+      addressEnv: process.env.CRYPTO_USDT_ERC20_WALLET || process.env.CRYPTO_ETH_WALLET,
       network: "Ethereum (ERC-20)",
-      rate: 1.0,
+      defaultExplorer: "https://etherscan.io/tx/",
     },
     BTC: {
-      address: process.env.CRYPTO_BTC_WALLET || "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+      addressEnv: process.env.CRYPTO_BTC_WALLET,
       network: "Bitcoin Mainnet",
-      rate: 68500,
+      defaultExplorer: "https://mempool.space/tx/",
     },
     ETH: {
-      address: process.env.CRYPTO_ETH_WALLET || "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
+      addressEnv: process.env.CRYPTO_ETH_WALLET,
       network: "Ethereum Mainnet",
-      rate: 3450,
+      defaultExplorer: "https://etherscan.io/tx/",
     },
   };
 
-  const selected = mockWallets[request.currency] || mockWallets.USDT_TRC20;
-  const calculatedCryptoAmount = (request.amountUsd / selected.rate).toFixed(
+  const selectedConfig = walletConfigs[request.currency] || walletConfigs.USDT_TRC20;
+  const depositAddress = selectedConfig.addressEnv;
+
+  if (!depositAddress) {
+    return {
+      success: false,
+      invoiceId,
+      depositAddress: "",
+      network: selectedConfig.network,
+      cryptoAmount: "0",
+      rateUsd: 0,
+      qrCodeUrl: "",
+      expiresInMinutes: 0,
+      explorerUrl: "",
+      error: `Receiving wallet address for ${selectedConfig.network} is not configured. Please set the corresponding wallet variable in .env.local`,
+    };
+  }
+
+  const rate = await getLiveCryptoRate(request.currency);
+  const calculatedCryptoAmount = (request.amountUsd / rate).toFixed(
     request.currency === "BTC" ? 6 : request.currency === "ETH" ? 4 : 2
   );
 
   return {
     success: true,
     invoiceId,
-    depositAddress: selected.address,
-    network: selected.network,
+    depositAddress,
+    network: selectedConfig.network,
     cryptoAmount: calculatedCryptoAmount,
-    rateUsd: selected.rate,
-    qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(
-      selected.address
+    rateUsd: rate,
+    qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(
+      depositAddress
     )}`,
-    expiresInMinutes: 60,
-    isMock: !process.env.CRYPTO_GATEWAY_API_KEY,
+    expiresInMinutes: 120,
+    explorerUrl: selectedConfig.defaultExplorer,
   };
+}
+
+export function getBlockchainExplorerUrl(currency: string, txHash: string): string {
+  const cleanHash = txHash.trim();
+  if (currency.includes("TRC20")) {
+    return `https://tronscan.org/#/transaction/${cleanHash}`;
+  }
+  if (currency === "BTC") {
+    return `https://mempool.space/tx/${cleanHash}`;
+  }
+  return `https://etherscan.io/tx/${cleanHash}`;
 }
