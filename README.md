@@ -39,6 +39,8 @@ The public list endpoints for brief and contact records are deliberately disable
 
 Proposal delivery requires a staff-only `POST /api/internal/briefs/:briefId/approve-proposal` request with `Authorization: Bearer <INTERNAL_AUTOMATION_TOKEN>`. This deliberate approval boundary prevents AI from committing the business to pricing, contractual terms, advertising spend, or campaign publication.
 
+The staff dashboard is available at `/staff`. Configure `STAFF_DASHBOARD_EMAIL`, `STAFF_DASHBOARD_PASSWORD`, and `STAFF_SESSION_SECRET` before using it. Dashboard proposal approval performs the same protected send operation without exposing the automation token to the browser.
+
 ## Getting Started
 
 First, run the development server:
