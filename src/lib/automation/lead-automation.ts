@@ -1,4 +1,5 @@
 import { runAiTask } from "@/lib/ai/openrouter";
+import { sendEmail } from "@/lib/email";
 
 type LeadSource = "brief" | "contact";
 
@@ -64,12 +65,6 @@ export async function sendApprovedProposal(input: {
   company: string;
   proposal: ProposalDraft;
 }) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM_EMAIL;
-  if (!apiKey || !from) {
-    throw new Error("Resend must be configured before an approved proposal can be sent.");
-  }
-
   const proposalText = [
     `Hi ${input.name},`,
     "",
@@ -84,18 +79,11 @@ export async function sendApprovedProposal(input: {
     "Reply to this email or use the scheduling link previously shared to discuss the proposal.",
   ].join("\n");
 
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from,
-      to: [input.email],
-      subject: input.proposal.subject || `Your PulseAI proposal for ${input.company}`,
-      text: proposalText,
-    }),
+  await sendEmail({
+    to: input.email,
+    subject: input.proposal.subject || `Your PulseAI proposal for ${input.company}`,
+    text: proposalText,
   });
-
-  if (!response.ok) throw new Error(`Resend proposal delivery failed (${response.status}).`);
 }
 
 const defaultAnalysis: LeadAnalysis = {
@@ -138,7 +126,7 @@ async function analyzeLead(input: LeadAutomationInput): Promise<LeadAnalysis> {
     timeline: safeText(input.timeline),
   };
 
-  const output = await runAiTask("lead_analytics", {
+  const output = await runAiTask("backend_lead_scoring", {
     systemPrompt:
       "You are a B2B growth-agency lead analyst. Analyze only the supplied lead details. Do not invent facts, promise outcomes, set prices, or make decisions on behalf of the agency. Return JSON only with summary, qualification (high, medium, or low), recommendedNextStep, suggestedServices (array), and internalNotes.",
     userPrompt: `Lead details:\n${JSON.stringify(leadContext)}`,
@@ -244,21 +232,8 @@ function acknowledgementText(input: LeadAutomationInput) {
 }
 
 async function sendAcknowledgementEmail(input: LeadAutomationInput) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM_EMAIL;
-  if (!apiKey || !from) return false;
-
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from,
-      to: [input.email],
-      subject: "We received your PulseAI inquiry",
-      text: acknowledgementText(input),
-    }),
-  });
-  if (!response.ok) throw new Error(`Resend acknowledgement failed (${response.status}).`);
+  if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL) return false;
+  await sendEmail({ to: input.email, subject: "We received your PulseAI inquiry", text: acknowledgementText(input) });
   return true;
 }
 

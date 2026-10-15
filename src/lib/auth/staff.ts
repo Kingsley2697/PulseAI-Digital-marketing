@@ -1,12 +1,14 @@
 import "server-only";
 
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
+import { connectToDatabase } from "@/lib/db/mongodb";
+import { StaffUser, type StaffRole } from "@/models/StaffUser";
 
 const cookieName = "pulseai_staff_session";
 const sessionDurationSeconds = 60 * 60 * 12;
 
-type StaffSession = { email: string; role: "staff"; expiresAt: number };
+export type StaffSession = { id: string; email: string; role: StaffRole; expiresAt: number };
 
 function sign(value: string) {
   const secret = process.env.STAFF_SESSION_SECRET;
@@ -20,17 +22,40 @@ function constantTimeEqual(left: string, right: string) {
   return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
 }
 
-export async function verifyStaffCredentials(email: string, password: string) {
-  const configuredEmail = process.env.STAFF_DASHBOARD_EMAIL;
-  const configuredPassword = process.env.STAFF_DASHBOARD_PASSWORD;
-  if (!configuredEmail || !configuredPassword || !process.env.STAFF_SESSION_SECRET) return false;
-  return constantTimeEqual(email.trim().toLowerCase(), configuredEmail.trim().toLowerCase()) &&
-    constantTimeEqual(password, configuredPassword);
+function hashPassword(password: string, salt = randomBytes(16).toString("hex")) {
+  return `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
 }
 
-export async function createStaffSession(email: string) {
+function verifyPassword(password: string, passwordHash: string) {
+  const [salt, expected] = passwordHash.split(":");
+  if (!salt || !expected) return false;
+  return constantTimeEqual(scryptSync(password, salt, 64).toString("hex"), expected);
+}
+
+async function ensureBootstrapAdmin() {
+  const email = process.env.STAFF_DASHBOARD_EMAIL?.trim().toLowerCase();
+  const password = process.env.STAFF_DASHBOARD_PASSWORD;
+  if (!email || !password) return;
+  await connectToDatabase();
+  await StaffUser.updateOne(
+    { email },
+    { $setOnInsert: { name: "Primary administrator", email, passwordHash: hashPassword(password), role: "admin", active: true } },
+    { upsert: true }
+  );
+}
+
+export async function verifyStaffCredentials(email: string, password: string): Promise<StaffSession | null> {
+  if (!process.env.STAFF_SESSION_SECRET) return null;
+  await ensureBootstrapAdmin();
+  const user = await StaffUser.findOne({ email: email.trim().toLowerCase(), active: true }).select("+passwordHash");
+  if (!user || !verifyPassword(password, user.passwordHash)) return null;
+  await StaffUser.findByIdAndUpdate(user._id, { lastLoginAt: new Date() });
+  return { id: String(user._id), email: user.email, role: user.role, expiresAt: 0 };
+}
+
+export async function createStaffSession(user: Omit<StaffSession, "expiresAt">) {
   const expiresAt = Date.now() + sessionDurationSeconds * 1_000;
-  const payload = Buffer.from(JSON.stringify({ email, role: "staff", expiresAt } satisfies StaffSession)).toString("base64url");
+  const payload = Buffer.from(JSON.stringify({ ...user, expiresAt } satisfies StaffSession)).toString("base64url");
   const signature = sign(payload);
   if (!signature) throw new Error("STAFF_SESSION_SECRET is not configured.");
 
@@ -58,7 +83,7 @@ export async function getStaffSession(): Promise<StaffSession | null> {
 
   try {
     const session = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as StaffSession;
-    if (session.role !== "staff" || !session.email || session.expiresAt <= Date.now()) return null;
+    if (!session.id || !["admin", "strategist", "reviewer"].includes(session.role) || !session.email || session.expiresAt <= Date.now()) return null;
     return session;
   } catch {
     return null;
@@ -68,4 +93,9 @@ export async function getStaffSession(): Promise<StaffSession | null> {
 export async function destroyStaffSession() {
   const cookieStore = await cookies();
   cookieStore.delete(cookieName);
+}
+
+export async function createStaffUser(input: { name: string; email: string; password: string; role: StaffRole }) {
+  await connectToDatabase();
+  return StaffUser.create({ ...input, email: input.email.trim().toLowerCase(), passwordHash: hashPassword(input.password) });
 }

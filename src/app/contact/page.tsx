@@ -61,8 +61,8 @@ export default function ContactPage() {
         estimatedBudget: "$3,000 - $7,500 / mo",
         message: "",
       });
-    } catch (err: any) {
-      setErrorMsg(err.message || "An unexpected error occurred. Please try again.");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
     }

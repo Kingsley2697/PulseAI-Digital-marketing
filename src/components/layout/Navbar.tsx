@@ -49,12 +49,6 @@ export default function Navbar() {
         {/* Action CTAs */}
         <div className="hidden lg:flex items-center gap-3.5">
           <Link
-            href="/staff"
-            className="text-xs font-bold px-3.5 py-2 rounded-xl border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 transition-all bg-white shadow-sm"
-          >
-            Staff Login
-          </Link>
-          <Link
             href="/get-started"
             className="relative group inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#ff5b37] hover:bg-[#e84a26] active:bg-[#d03e1d] text-white text-sm font-bold shadow-lg shadow-orange-500/25 hover:shadow-orange-500/35 hover:scale-[1.02] active:scale-[0.98] transition-all"
           >
@@ -111,13 +105,6 @@ export default function Navbar() {
               className="py-2 hover:text-[#ff5b37] transition-colors"
             >
               Contact & Support
-            </Link>
-            <Link
-              href="/staff"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 hover:text-[#ff5b37] transition-colors"
-            >
-              Staff Login
             </Link>
           </nav>
           <div className="pt-4 border-t border-slate-100">

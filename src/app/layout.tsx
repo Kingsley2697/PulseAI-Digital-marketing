@@ -1,16 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import { PwaRegistration } from "@/components/pwa/PwaRegistration";
 
 export const metadata: Metadata = {
   title: "PulseAI Digital | Autonomous AI Growth Engine & Marketing Agency",
@@ -32,6 +22,8 @@ export const metadata: Metadata = {
       "Supercharge your business growth with AI-powered marketing. Higher ROAS, lower customer acquisition costs, and 24/7 lead bots.",
     type: "website",
   },
+  applicationName: "PulseAI Digital",
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "PulseAI" },
 };
 
 export default function RootLayout({
@@ -42,9 +34,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className="h-full antialiased"
     >
       <body className="min-h-full flex flex-col bg-[#fbfaf8] text-slate-900 selection:bg-[#ff5b37] selection:text-white">
+        <PwaRegistration />
         {children}
       </body>
     </html>

@@ -58,6 +58,13 @@ export interface IBrief extends Document {
     firstThirtyDays: string[];
     campaignIdeas: string[];
   };
+  automationStatus: "queued" | "processing" | "ready_for_review" | "failed";
+  automationError?: string;
+  clientTrackingToken: string;
+  canvaAutofillJobId?: string;
+  canvaDesignUrl?: string;
+  canvaClientEmailSentAt?: Date;
+  assignedStaffId?: string;
 
   // System
   status: "new" | "reviewing" | "in-progress" | "converted";
@@ -122,6 +129,14 @@ const BriefSchema = new Schema<IBrief>(
       firstThirtyDays: { type: [String], default: [] },
       campaignIdeas: { type: [String], default: [] },
     },
+
+    automationStatus: { type: String, enum: ["queued", "processing", "ready_for_review", "failed"], default: "queued" },
+    automationError: { type: String, default: "" },
+    clientTrackingToken: { type: String, required: true, unique: true, index: true },
+    canvaAutofillJobId: { type: String, default: "" },
+    canvaDesignUrl: { type: String, default: "" },
+    canvaClientEmailSentAt: { type: Date },
+    assignedStaffId: { type: String, default: "" },
 
     status: { type: String, enum: ["new", "reviewing", "in-progress", "converted"], default: "new" },
   },

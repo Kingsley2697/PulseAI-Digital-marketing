@@ -1,10 +1,19 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AlertCircle, CheckCircle2, LogOut, Send, Workflow } from "lucide-react";
 import { getStaffSession } from "@/lib/auth/staff";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { Brief } from "@/models/Brief";
 import { AutomationTask } from "@/models/AutomationTask";
-import { approveProposalAction, logoutStaffAction, updateAutomationTaskAction } from "@/app/staff/actions";
+import { StaffUser } from "@/models/StaffUser";
+import { approveProposalAction, createStaffMemberAction, logoutStaffAction, updateAutomationTaskAction } from "@/app/staff/actions";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
+
+// This protected dashboard reads a signed request cookie and fresh database records.
+export const instant = false;
 
 const statusStyles = {
   pending_review: "bg-amber-50 text-amber-800 border-amber-200",
@@ -24,9 +33,10 @@ export default async function StaffDashboardPage({
   const { message, error } = await searchParams;
 
   await connectToDatabase();
-  const [briefs, tasks] = await Promise.all([
+  const [briefs, tasks, staffMembers] = await Promise.all([
     Brief.find().sort({ createdAt: -1 }).limit(50).lean(),
     AutomationTask.find().sort({ createdAt: -1 }).limit(250).lean(),
+    session.role === "admin" ? StaffUser.find().select("name email role active lastLoginAt").sort({ createdAt: -1 }).lean() : Promise.resolve([]),
   ]);
   const tasksByBrief = new Map<string, (typeof tasks)>();
   for (const task of tasks) {
@@ -67,6 +77,26 @@ export default async function StaffDashboardPage({
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-xs font-bold uppercase text-slate-500">Pending review</p><p className="mt-1 text-3xl font-black text-amber-600">{tasks.filter((task) => task.status === "pending_review").length}</p></div>
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-xs font-bold uppercase text-slate-500">In progress</p><p className="mt-1 text-3xl font-black text-blue-600">{tasks.filter((task) => task.status === "in_progress").length}</p></div>
         </div>
+
+        {session.role === "admin" && (
+          <section className="mb-8 grid gap-5 lg:grid-cols-2">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="font-extrabold">Team access</h2>
+              <form action={createStaffMemberAction} className="mt-4 grid gap-3 sm:grid-cols-2">
+                <input name="name" required placeholder="Full name" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                <input name="email" type="email" required placeholder="Work email" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                <input name="password" type="password" required minLength={12} placeholder="Temporary password (12+ chars)" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm sm:col-span-2" />
+                <select name="role" defaultValue="reviewer" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm"><option value="reviewer">Reviewer</option><option value="strategist">Strategist</option><option value="admin">Admin</option></select>
+                <button className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white">Add staff member</button>
+              </form>
+            </div>
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between"><h2 className="font-extrabold">Integrations</h2><a href="/api/canva/connect" className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold hover:bg-slate-50">Connect Canva</a></div>
+              <p className="mt-3 text-sm text-slate-600">Connect the agency Canva account before enabling template autofill. Tokens are encrypted at rest.</p>
+              <div className="mt-4 space-y-2 text-xs text-slate-600">{staffMembers.map((member) => <p key={String(member._id)}>{member.name} · {member.role} · {member.active ? "active" : "inactive"}</p>)}</div>
+            </div>
+          </section>
+        )}
 
         <section className="space-y-5">
           {briefs.length === 0 ? (
@@ -110,6 +140,12 @@ export default async function StaffDashboardPage({
                     <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-slate-600">{(brief.launchPlan?.firstThirtyDays || []).slice(0, 4).map((item) => <li key={item}>{item}</li>)}</ul>
                   </div>
                 </div>
+
+                {brief.canvaDesignUrl && (
+                  <a href={brief.canvaDesignUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-xl bg-orange-50 px-4 py-2.5 text-sm font-bold text-[#ff5b37] hover:bg-orange-100">
+                    Open generated Canva design
+                  </a>
+                )}
 
                 <div className="mt-5 border-t border-slate-100 pt-5">
                   <p className="flex items-center gap-2 text-sm font-bold"><Workflow className="h-4 w-4 text-[#ff5b37]" /> Workflow tasks</p>

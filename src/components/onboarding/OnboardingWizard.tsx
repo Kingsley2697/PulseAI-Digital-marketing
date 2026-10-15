@@ -39,6 +39,7 @@ export default function OnboardingWizard() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [submittedBriefId, setSubmittedBriefId] = useState("");
+  const [trackingUrl, setTrackingUrl] = useState("");
 
   // Payment state
   const [activePaymentModal, setActivePaymentModal] = useState<null | {
@@ -227,6 +228,7 @@ export default function OnboardingWizard() {
         throw new Error("Your brief was saved without a reference ID. Please contact support.");
       }
       setSubmittedBriefId(data.briefId);
+      setTrackingUrl(data.trackingUrl || "");
       setCurrentStep(5); // Show success celebration
       confetti({
         particleCount: 100,
@@ -916,6 +918,14 @@ export default function OnboardingWizard() {
 
               {/* Payment or Next Steps Buttons */}
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                {trackingUrl && (
+                  <Link
+                    href={trackingUrl}
+                    className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-700 text-white text-xs font-bold"
+                  >
+                    Track My Brief
+                  </Link>
+                )}
                 {formData.paymentMethod === "flutterwave" && (
                   <button
                     onClick={() => initiatePaymentFlow(submittedBriefId, "flutterwave")}

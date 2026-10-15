@@ -1,4 +1,4 @@
-export type AiTaskType = "lead_analytics" | "client_copywriting" | "bulk_brainstorming";
+export type AiTaskType = "backend_lead_scoring" | "client_copywriting" | "bulk_brainstorming";
 
 type AiTaskOptions = {
   systemPrompt: string;
@@ -14,14 +14,14 @@ type OpenRouterCompletion = {
 };
 
 const defaultModels: Record<AiTaskType, string> = {
-  lead_analytics: "anthropic/claude-sonnet-4",
-  client_copywriting: "openai/gpt-4.1",
+  backend_lead_scoring: "openai/gpt-4o",
+  client_copywriting: "anthropic/claude-3.5-sonnet",
   bulk_brainstorming: "google/gemini-2.5-flash",
 };
 
 function modelForTask(task: AiTaskType) {
   const configuredModels: Record<AiTaskType, string | undefined> = {
-    lead_analytics: process.env.OPENROUTER_LEAD_ANALYTICS_MODEL,
+    backend_lead_scoring: process.env.OPENROUTER_BACKEND_LEAD_SCORING_MODEL || process.env.OPENROUTER_LEAD_ANALYTICS_MODEL,
     client_copywriting: process.env.OPENROUTER_CLIENT_COPYWRITING_MODEL,
     bulk_brainstorming: process.env.OPENROUTER_BULK_BRAINSTORMING_MODEL,
   };
