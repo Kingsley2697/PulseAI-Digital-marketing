@@ -26,7 +26,7 @@ export default function FaqSection() {
     },
     {
       q: "What happens after I complete the Onboarding Brief (/get-started)?",
-      a: "Your submission immediately triggers an automated workspace setup in our system. You will receive an instant confirmation via email/WhatsApp, your dedicated AI campaign parameters will be drafted, and a Senior Strategist will schedule your 20-minute kickoff sprint.",
+      a: "Your submission immediately triggers an automated workspace setup in our system. You will receive an instant confirmation via email, your dedicated AI campaign parameters will be drafted, and a Senior Strategist will schedule your 20-minute kickoff sprint.",
     },
   ];
 

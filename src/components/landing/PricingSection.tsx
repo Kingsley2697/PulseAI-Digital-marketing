@@ -21,7 +21,7 @@ export default function PricingSection() {
         "Meta Ads OR Google Ads AI Management",
         "Weekly AI Generative Creative Pack (25 assets)",
         "Local SEO & GBP 24/7 Citation Sync",
-        "WhatsApp / Web AI Chatbot (up to 500 chats/mo)",
+        "Web AI Chatbot (up to 500 chats/mo)",
         "Bi-weekly live strategy sprint",
         "Standard Slack / Telegram support",
       ],

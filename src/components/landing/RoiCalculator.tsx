@@ -270,7 +270,7 @@ export default function RoiCalculator() {
                   &lt; 30 sec
                 </div>
                 <span className="text-[11px] text-slate-500 mt-1 block">
-                  Instant WhatsApp qualification
+                  Instant AI qualification
                 </span>
               </div>
             </div>

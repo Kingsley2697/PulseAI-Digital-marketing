@@ -76,7 +76,6 @@ async function runBriefAutomation(briefId: string) {
       AIRecommendation: automation.analysis?.recommendedNextStep || "Review manually",
       StaffDashboard: `${appUrl}/staff`,
     },
-    staffReviewAlert: { dashboardUrl: `${appUrl}/staff`, summary: `AI review is ready for ${brief.businessName}.` },
   });
   await AuditLog.create({ action: "brief.automation.completed", entityType: "brief", entityId: briefId, metadata: { errors: automation.errors } });
 }

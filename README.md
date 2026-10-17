@@ -9,9 +9,8 @@ When a visitor submits the onboarding brief or contact form, the app always stor
 1. Uses OpenRouter to generate an internal lead summary, qualification level, and recommended next step.
 2. Creates a HubSpot CRM contact.
 3. Sends the lead a Resend email acknowledgement, including the optional Calendly booking link.
-4. Sends a pre-approved WhatsApp Cloud API template acknowledgement.
-5. Sends the team its existing Telegram/email notification with the AI recommendation.
-6. Produces an internal proposal draft, 30-day launch-plan draft, and approval-gated task queue for full briefs.
+4. Sends the team a Telegram notification with the AI recommendation.
+5. Produces an internal proposal draft, 30-day launch-plan draft, and approval-gated task queue for full briefs.
 
 No provider is called until its environment variables are supplied. Failures in an optional automation are recorded without rejecting the client submission.
 
@@ -27,13 +26,10 @@ HUBSPOT_PRIVATE_APP_TOKEN=
 RESEND_API_KEY=
 RESEND_FROM_EMAIL=
 CALENDLY_SCHEDULING_URL=
-WHATSAPP_ACCESS_TOKEN=
-WHATSAPP_PHONE_NUMBER_ID=
-WHATSAPP_TEMPLATE_NAME=
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=
 INTERNAL_AUTOMATION_TOKEN=
 ```
-
-For WhatsApp, create and approve a business-initiated template containing one body variable: the customer name. The app does not send unapproved free-form outbound messages.
 
 The public list endpoints for brief and contact records are deliberately disabled. Re-enable staff views only after adding server-side authentication and authorization.
 

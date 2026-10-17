@@ -41,7 +41,7 @@ export default function ValueComparison() {
       metric: "Lead Capture & Response Time",
       icon: ShieldCheck,
       traditional: "Manual email follow-up in 12 - 48 hours (leads go cold)",
-      pulseAi: "Sub-minute conversational AI qualification on WhatsApp & Web",
+      pulseAi: "Sub-minute conversational AI qualification on Web & Social",
       winner: "PulseAI",
       advantage: "Captures and books qualified buyers while their intent is at peak.",
     },

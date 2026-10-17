@@ -121,7 +121,7 @@ export default function ContactPage() {
                     </div>
                     <div>
                       <span className="text-[11px] uppercase tracking-wider text-slate-400 block font-bold">
-                        WhatsApp & Priority Desk
+                        Phone & Priority Desk
                       </span>
                       <span className="text-slate-900 font-bold">+234 (0) 803 900 1200 / +1 (415) 890-2341</span>
                     </div>
@@ -221,7 +221,7 @@ export default function ContactPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Phone / WhatsApp
+                        Phone Number
                       </label>
                       <input
                         type="tel"
@@ -300,7 +300,7 @@ export default function ContactPage() {
                       rows={4}
                       value={formData.message}
                       onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                      placeholder="Tell us what you are aiming to accomplish (e.g. improve Meta ROAS, expand to new geos, build WhatsApp booking bot)..."
+                      placeholder="Tell us what you are aiming to accomplish (e.g. improve Meta ROAS, expand to new geos, build an AI booking bot)..."
                       className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-[#ff5b37] text-slate-900 placeholder-slate-400 text-sm outline-none"
                     />
                   </div>

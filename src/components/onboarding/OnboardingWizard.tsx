@@ -111,7 +111,7 @@ export default function OnboardingWizard() {
     "Direct Sales & E-commerce ROAS",
     "Brand Authority & Viral Reach",
     "Local Store Foot Traffic & Calls",
-    "Automated 24/7 WhatsApp Conversions",
+    "Automated 24/7 AI Conversions",
   ];
 
   // Service Options
@@ -186,7 +186,7 @@ export default function OnboardingWizard() {
         return false;
       }
       if (!formData.phone.trim()) {
-        setErrorMsg("Please provide a phone / WhatsApp number for instant notifications.");
+        setErrorMsg("Please provide a phone number for instant notifications.");
         return false;
       }
     }
@@ -786,7 +786,7 @@ export default function OnboardingWizard() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Phone / WhatsApp Number *
+                  Phone Number *
                 </label>
                 <input
                   type="tel"

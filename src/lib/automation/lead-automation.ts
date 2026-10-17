@@ -36,7 +36,6 @@ export type LeadAutomationResult = {
   aiAnalyzed: boolean;
   crmCreated: boolean;
   emailSent: boolean;
-  whatsappSent: boolean;
   errors: string[];
 };
 
@@ -237,38 +236,6 @@ async function sendAcknowledgementEmail(input: LeadAutomationInput) {
   return true;
 }
 
-async function sendWhatsAppAcknowledgement(input: LeadAutomationInput) {
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const templateName = process.env.WHATSAPP_TEMPLATE_NAME;
-  if (!token || !phoneNumberId || !templateName || !input.phone) return false;
-
-  const to = input.phone.replace(/[^0-9]/g, "");
-  if (!to) return false;
-
-  const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to,
-      type: "template",
-      template: {
-        name: templateName,
-        language: { code: process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en" },
-        components: [
-          {
-            type: "body",
-            parameters: [{ type: "text", text: input.name }],
-          },
-        ],
-      },
-    }),
-  });
-  if (!response.ok) throw new Error(`WhatsApp acknowledgement failed (${response.status}).`);
-  return true;
-}
-
 export async function runLeadAutomation(input: LeadAutomationInput): Promise<LeadAutomationResult> {
   const errors: string[] = [];
   let analysis = defaultAnalysis;
@@ -303,13 +270,12 @@ export async function runLeadAutomation(input: LeadAutomationInput): Promise<Lea
     }
   }
 
-  const [hubspot, email, whatsapp] = await Promise.allSettled([
+  const [hubspot, email] = await Promise.allSettled([
     createHubSpotContact(input),
     sendAcknowledgementEmail(input),
-    sendWhatsAppAcknowledgement(input),
   ]);
 
-  for (const result of [hubspot, email, whatsapp]) {
+  for (const result of [hubspot, email]) {
     if (result.status === "rejected") {
       errors.push(result.reason instanceof Error ? result.reason.message : "Lead automation failed.");
     }
@@ -339,7 +305,6 @@ export async function runLeadAutomation(input: LeadAutomationInput): Promise<Lea
     aiAnalyzed,
     crmCreated: hubspot.status === "fulfilled" && Boolean(hubspot.value),
     emailSent: email.status === "fulfilled" && email.value,
-    whatsappSent: whatsapp.status === "fulfilled" && whatsapp.value,
     errors,
   };
 }

@@ -73,7 +73,7 @@ export default function ServicesGrid() {
     {
       id: "chatbots",
       title: "Conversational AI Lead Capture Chatbots",
-      subtitle: "24/7 WhatsApp & Web Conversion Agents",
+      subtitle: "24/7 AI Web Conversion Agents",
       description:
         "Human-grade conversational agents trained on your proprietary sales methodology. They qualify leads in under 30 seconds, handle objections, and book meetings directly into your calendar.",
       icon: Bot,
@@ -81,7 +81,7 @@ export default function ServicesGrid() {
       bgSoft: "bg-emerald-50",
       borderColor: "border-emerald-100",
       features: [
-        "Native WhatsApp, Instagram DM, and Website widget integrations",
+        "Native Instagram DM and Website widget integrations",
         "Automated CRM sync with HubSpot, Salesforce, and Google Sheets",
         "Intelligent calendar booking (Calendly, Cal.com, Google Calendar)",
         "Zero latency responses with objection-handling guardrails",

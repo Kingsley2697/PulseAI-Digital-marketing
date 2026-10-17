@@ -12,7 +12,6 @@ export const metadata: Metadata = {
     "Autonomous Ad Management",
     "Meta Ads AI",
     "Google Ads Optimization",
-    "WhatsApp Lead Bot",
     "Local SEO Automation",
   ],
   authors: [{ name: "PulseAI Digital Team" }],
